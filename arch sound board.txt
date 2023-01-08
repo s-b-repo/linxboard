@@ -1,0 +1,95 @@
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GObject, Gst
+
+# Initialize GStreamer
+Gst.init(None)
+
+# Create the GUI
+window = Gtk.Window()
+window.set_title("Sound Board")
+
+# Create a box to hold the buttons
+box = Gtk.Box(spacing=6)
+window.add(box)
+
+# Create a dictionary to hold the sound files and their names
+sounds = {
+    "Cats": "cats.mp3",
+    "Dogs": "dogs.mp3",
+    "Birds": "birds.mp3",
+}
+
+# Create a button for each sound
+buttons = {}
+for name, file in sounds.items():
+    button = Gtk.Button(label=name)
+    box.pack_start(button, True, True, 0)
+    buttons[name] = button
+
+# Create an "Import" button
+import_button = Gtk.Button(label="Import")
+box.pack_start(import_button, True, True, 0)
+
+# Create a pipeline to play the sound files
+pipeline = Gst.Pipeline.new("audio-player")
+
+# Create a GStreamer playbin element
+playbin = Gst.ElementFactory.make("playbin", "playbin")
+pipeline.add(playbin)
+
+# Set the playbin to loop indefinitely
+playbin.set_property("loop", -1)
+
+# Set the playbin to automatically play when buffered
+playbin.set_property("auto-start", True)
+
+# Set the playbin to use a software volume control
+playbin.set_property("volume", 1.0)
+
+# Set the playbin to use the default audio device
+device = Gst.parse_launch("autoaudiosink")
+playbin.set_property("audio-sink", device)
+
+# Define a function to play a sound file
+def play_sound(file):
+    playbin.set_property("uri", "file://" + file)
+    pipeline.set_state(Gst.State.PLAYING)
+
+# Define a function to stop playing a sound
+def stop_sound():
+    pipeline.set_state(Gst.State.NULL)
+
+# Connect the buttons to the play and stop functions
+for name, button in buttons.items():
+    button.connect("clicked", play_sound, sounds[name])
+    button.connect("clicked", stop_sound)
+
+# Define a function to import a new sound
+def import_sound():
+    # Open a file chooser dialog to select the sound file
+    dialog = Gtk.FileChooserDialog("Import Sound", window,
+        Gtk.FileChooserAction.OPEN,
+        (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+         Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+
+    # Run the dialog and get the selected file
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        file = dialog.get_filename()
+
+        # Add the sound to the sounds dictionary
+        name = file.split("/")[-1]
+        sounds[name] = file
+
+        # Create a button for the new sound
+        button = Gtk.Button(label=name)
+        box.pack_start(button, True, True, 0)
+        buttons[name] = button
+
+        # Connect the button to the play and stop functions
+        button.connect("clicked", play_sound, file)
+        button.connect("clicked", stop_sound)
+
+        # Show the button
+        button.show()
