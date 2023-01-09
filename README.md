@@ -23,9 +23,15 @@ sudo pacman -S gstreamer gtk3
 
 Once you have installed the necessary libraries, you should be able to run the script on Debian and Arch.
 
-python3 soundboard.py
+python3 linxboard.py
 
+To use this script, save it to a file (e.g. run.sh) and make it executable:
 
+chmod +x run.sh
+
+Then, you can run the script with:
+
+./run.sh
 
 
 
