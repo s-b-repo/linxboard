@@ -1,4 +1,4 @@
- linux-soundbaord-arch
+ linux-soundboard-linxboard
 
 
 
