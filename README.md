@@ -6,7 +6,7 @@
 
 
 
- a arch linux sound baord i made tell me a issue and ill try and fix bit new to coding
+ a linux sound board i made tell me a issue and ill try and fix bit new to coding
  python archboard.py to run 
 
 To make this script work on Debian and Arch, you will need to install the GStreamer and GTK3 development libraries. Here is how you can do this:
