@@ -25,13 +25,13 @@ Once you have installed the necessary libraries, you should be able to run the s
 
 python3 linxboard.py
 
-To use this script, save it to a file (e.g. run.sh) and make it executable:
+To use this script, save it to a file (e.g. dependencies.sh) and make it executable:
 
-chmod +x run.sh
+chmod +x dependencies.sh
 
 Then, you can run the script with:
 
-./run.sh
+./dependencies.sh
 
 
 
