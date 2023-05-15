@@ -108,7 +108,7 @@ for name, button in buttons.items():
 volume_control.connect("value-changed", lambda w: playbin.set_property("volume", w.get_value()))
 
 # Connect the color picker button to a function to change the background color
-def pick_color(button):
+    def pick_color(button):
    # Open a color chooser dialog
 color_dialog = Gtk.ColorChooserDialog(title="Pick a color", parent=window)
 response = color_dialog.run()
