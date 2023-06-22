@@ -2,6 +2,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject, Gst, Gdk
 import threading
+
+class LinxboardApp:
 def __init__(self):
         # Initialize Gtk and create the main window
         Gtk.init()
