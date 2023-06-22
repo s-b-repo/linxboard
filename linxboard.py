@@ -2,10 +2,18 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject, Gst, Gdk
 import threading
+def __init__(self):
+        # Initialize Gtk and create the main window
+        Gtk.init()
+        self.window = Gtk.Window()
+        self.window.set_title("Linxboard")
+        self.window.connect("destroy", Gtk.main_quit)
 
 # Initialize GStreamer
 Gst.init(None)
 
+button_box = Gtk.ButtonBox.new(Gtk.Orientation.HORIZONTAL)
+button_box.set_layout(Gtk.ButtonBoxStyle.SPREAD)
 # Create the GUI
 window = Gtk.Window()
 window.set_title("Sound Board")
