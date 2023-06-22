@@ -4,9 +4,9 @@ from gi.repository import Gtk, GObject, Gst, Gdk
 import threading
 
 class LinxboardApp:
-def __init__(self):
+	def __init__(self):
         # Initialize Gtk and create the main window
-        Gtk.init()
+       		Gtk.init()
         self.window = Gtk.Window()
         self.window.set_title("Linxboard")
         self.window.connect("destroy", Gtk.main_quit)
@@ -159,77 +159,3 @@ def toggle_visualizer(button):
         pipeline.remove(visualizer)
         decodebin.unlink(visualizer)
         visualizer.unlink(device)
-
-visualizer_button.connect("toggled", toggle_visualizer)
-
-# Define a function to import a new sound
-def import_sound():
-   
-   # Open a file chooser dialog to select the sound file
-        dialog = Gtk.FileChooserDialog("Import Sound", window,
-    Gtk.FileChooserAction.OPEN,
-    (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-     Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
-
-# Run the dialog and get the selected file
-response = dialog.run()
-if response == Gtk.ResponseType.OK:
-    file = dialog.get_filename()
-
-    # Add the sound to the sounds dictionary
-    name = file.split("/")[-1]
-    sounds[name] = file
-
-    # Create a button for the new sound
-    button_box = Gtk.ButtonBox(layout=Gtk.ButtonBoxStyle.SPREAD)
-    box.pack_start(button_box, True, True, 0)
-
-    # Create a sound button
-    button = Gtk.Button(label=name)
-    button_box.add(button)
-
-    # Create a remove button
-    remove_button = Gtk.Button(label="X")
-    button_box.add(remove_button)
-
-    # Connect the remove button to the remove_button function
-    remove_button.connect("clicked", remove_button)
-    buttons[name] = button
-
-    # Connect the button to the play and stop functions
-    button.connect("clicked", play_sound, file)
-
-    # Show the button
-    button.show()
-
-# Destroy the dialog
-dialog.destroy()
-
-# Define a function to remove a sound button
-def remove_button(button):
-    # Get the button's parent (the button box)
-    button_box = button.get_parent()
-
-    # Get the name of the sound associated with the button
-    for name, sound_button in buttons.items():
-        if sound_button == button:
-            break
-
-    # Remove the sound from the sounds dictionary
-    del sounds[name]
-
-    # Remove the button from the button box
-    button_box.remove(button)
-    button_box.remove(remove_button)
-
-    # Destroy the button box
-    button_box.destroy()
-
-# Connect the "Import" button to the import_sound function
-import_button.connect("clicked", import_sound)
-
-# Show the window
-window.show_all()
-
-# Run the GTK main loop
-Gtk.main()
