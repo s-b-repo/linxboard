@@ -164,7 +164,7 @@ visualizer_button.connect("toggled", toggle_visualizer)
 def import_sound():
    
    # Open a file chooser dialog to select the sound file
-dialog = Gtk.FileChooserDialog("Import Sound", window,
+        dialog = Gtk.FileChooserDialog("Import Sound", window,
     Gtk.FileChooserAction.OPEN,
     (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
      Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
