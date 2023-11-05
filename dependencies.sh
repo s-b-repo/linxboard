@@ -1,15 +1,22 @@
-#!/bin/bash
+!/bin/bash
 
-# Check if the system is Debian-based or Arch-based
-if [[ -f /etc/debian_version ]]; then
-    # Install the necessary libraries on Debian-based systems
-    sudo apt-get update
-    sudo apt-get install libgstreamer1.0-dev libgtk-3-dev
-elif [[ -f /etc/arch-release ]]; then
-    # Install the necessary libraries on Arch-based systems
-    sudo pacman -Syu
-    sudo pacman -S gstreamer gtk3
-else
-    echo "This system is not supported."
-    exit 1
+# Check if the script is running with root privileges
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run this script as root"
+  exit 1
 fi
+
+# Check if the operating system is supported (Arch Linux or Debian)
+if [ -f /etc/arch-release ]; then
+  # Arch Linux
+  pacman -Sy --noconfirm gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly
+elif [ -f /etc/debian_version ]; then
+  # Debian-based systems (Debian, Ubuntu, etc.)
+  apt-get update
+  apt-get install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+else
+  echo "Unsupported operating system"
+  exit 1
+fi
+
+echo "Requirements installation completed successfully"
