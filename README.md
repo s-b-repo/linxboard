@@ -1,25 +1,50 @@
 
-Open a terminal or command prompt.
+
+Open a terminal and navigate to the directory where your project files are located.
 
 
 
-Create a new directory for your project (optional):
-
-bash
-
-mkdir linxboard
-cd linxboard
-
-Create a virtual environments
-
-
-For macOS and Linux:
+Create a new virtual environment using the venv module by running the following command:
 
 python
 
-    python3 -m venv linx
+python3 -m venv linx
 
-source /path/to/venv/bin/activate
+
+Activate the virtual environment:
+
+
+    For Linux/Mac:
+
+    bash
+
+source myenv/bin/activate
+
+
+For Windows:
+
+python
+
+    myenv\Scripts\activate
+
+
+Once the virtual environment is activated, install the required dependencies using pip. Make sure you have the necessary packages listed in your project's requirements.txt or install them individually. For example:
+
+python
+
+pip install pycairo PyGObject
+
+
+
+
+After the installation is complete, try running your script again:
+
+python
+
+python linxboard.py
+
+
+
 
 
 
