@@ -9,11 +9,13 @@ fi
 # Check if the operating system is supported (Arch Linux or Debian)
 if [ -f /etc/arch-release ]; then
   # Arch Linux
-  pacman -Sy --noconfirm gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly
+  pacman -Sy --noconfirm gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly pip
+  pip install PyGObject
 elif [ -f /etc/debian_version ]; then
   # Debian-based systems (Debian, Ubuntu, etc.)
   apt-get update
-  apt-get install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+  apt-get install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly pip
+  pip install PyGObject
 else
   echo "Unsupported operating system"
   exit 1
