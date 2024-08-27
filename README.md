@@ -1,4 +1,5 @@
 sudo apt-get install python3-gi gir1.2-gtk-3.0 gir1.2-gstreamer-1.0
+#
 sudo pacman -S python-gobject gtk3 gst-plugins-base
 
 
