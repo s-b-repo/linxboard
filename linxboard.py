@@ -2,7 +2,6 @@ import gi
 import os
 from gi.repository import Gtk, GObject, Gst, Gdk
 
-gi.require_version('Gtk', '3.0')
 gi.require_version('Gst', '1.0')
 
 class LinxboardApp:
