@@ -1,55 +1,52 @@
-
-import gi
 import os
 import json
 import random
-from gi.repository import Gtk, Gdk, GObject, Gst
+import simpleaudio as sa
+from pydub import AudioSegment
+from pydub.playback import play
+from PyInquirer import prompt
+from gi.repository import Gtk, Gdk, GObject
 
-gi.require_version("Gst", "1.0")
-Gst.init(None)
+# Constants
+MAX_SOUNDS_PER_PROFILE = 10
 
 class LinxboardApp:
-    MAX_SOUNDS_PER_PROFILE = 10  # Configurable max number of sounds per profile
-
     def __init__(self):
         self.sounds = {}
-        self.key_bindings = {}
         self.profiles = {}
+        self.key_bindings = {}
         self.current_profile = "Default"
+        
         self.init_ui()
         self.load_profiles()
-        self.setup_audio_pipeline()
         GObject.timeout_add(1000, self.change_border_color)
 
     def init_ui(self):
-        # Set up the main window
         self.window = Gtk.Window(title="Linxboard")
         self.window.set_default_size(600, 400)
         self.window.connect("destroy", Gtk.main_quit)
 
-        # Enable drag-and-drop for sound files
+        # Set up drag-and-drop
         self.window.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
         self.window.drag_dest_add_uri_targets()
         self.window.connect("drag-data-received", self.on_drag_data_received)
 
-        # Add CSS for neon border and dynamic background
+        # Apply CSS for neon border and dynamic background
         self.apply_css()
 
-        # Main layout with toolbar, profile selector, and sound buttons
+        # Main layout setup
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.window.add(vbox)
 
-        # Toolbar with profile management and settings
+        # Toolbar with profile selection
         toolbar = Gtk.Box(spacing=6)
         vbox.pack_start(toolbar, False, False, 0)
 
-        # Dropdown for profile selection
         self.profile_combo = Gtk.ComboBoxText()
         self.profile_combo.connect("changed", self.on_profile_changed)
         toolbar.pack_start(self.profile_combo, True, True, 0)
         self.load_profile_dropdown()
 
-        # Buttons for adding/removing sounds and settings
         add_button = Gtk.Button(label="Add Sound")
         add_button.connect("clicked", self.add_sound)
         toolbar.pack_start(add_button, True, True, 0)
@@ -62,28 +59,20 @@ class LinxboardApp:
         self.sound_box = Gtk.Box(spacing=6)
         vbox.pack_start(self.sound_box, True, True, 0)
 
-        # Volume control
-        self.volume_button = Gtk.VolumeButton()
-        self.volume_button.connect("value-changed", self.on_volume_changed)
-        vbox.pack_start(self.volume_button, False, False, 0)
-
-        # Display the window
         self.window.show_all()
 
     def apply_css(self):
-        # Apply CSS for neon border and customizable background
         style_provider = Gtk.CssProvider()
         css = """
         window {
             background: #222;
-            border: 3px solid #00ff00;  /* Initial border color */
+            border: 3px solid #00ff00;
             border-radius: 10px;
         }
         button {
             background-color: #444;
             color: white;
             border-radius: 5px;
-            border: none;
             padding: 5px;
         }
         button:hover {
@@ -96,20 +85,7 @@ class LinxboardApp:
             Gdk.Screen.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-    def setup_audio_pipeline(self):
-        # Setup GStreamer pipeline for playback
-        self.pipeline = Gst.Pipeline.new("audio-pipeline")
-        self.decodebin = Gst.ElementFactory.make("uridecodebin", "decodebin")
-        self.sink = Gst.ElementFactory.make("autoaudiosink", "audio-output")
-        self.volume = Gst.ElementFactory.make("volume", "volume")
-        self.pipeline.add(self.decodebin)
-        self.pipeline.add(self.volume)
-        self.pipeline.add(self.sink)
-        self.decodebin.connect("pad-added", self.on_pad_added)
-        self.volume.link(self.sink)
-
     def load_profiles(self):
-        # Load profiles from a configuration file (JSON)
         try:
             if os.path.exists("profiles.json"):
                 with open("profiles.json", "r") as file:
@@ -121,7 +97,6 @@ class LinxboardApp:
             self.show_message("Error loading profiles.json. Check file format.")
 
     def load_profile_dropdown(self):
-        # Load profiles into the dropdown
         self.profile_combo.remove_all()
         for profile in self.profiles.keys():
             self.profile_combo.append_text(profile)
@@ -130,28 +105,18 @@ class LinxboardApp:
     def add_sound(self, widget=None, sound_file=None):
         # Adding sound dialog with file chooser
         if not sound_file:
-            dialog = Gtk.FileChooserDialog(
-                title="Select Sound File",
-                parent=self.window,
-                action=Gtk.FileChooserAction.OPEN,
-                buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-            )
-            response = dialog.run()
-            if response == Gtk.ResponseType.OK:
-                sound_file = dialog.get_filename()
-            dialog.destroy()
+            sound_file = self.file_dialog()
 
         if sound_file and os.path.isfile(sound_file):
-            name = self.request_input("Enter Sound Name")
+            name, key = self.get_sound_details()
             if name and not self.is_sound_duplicate(name):
-                key = self.request_key_binding()
                 if key and not self.is_key_binding_duplicate(key):
-                    if len(self.profiles[self.current_profile]) < self.MAX_SOUNDS_PER_PROFILE:
+                    if len(self.profiles[self.current_profile]) < MAX_SOUNDS_PER_PROFILE:
                         self.profiles[self.current_profile][name] = {"file": sound_file, "key": key}
                         self.add_sound_button(name, sound_file, key)
                         self.save_profiles()
                     else:
-                        self.show_message(f"Maximum of {self.MAX_SOUNDS_PER_PROFILE} sounds reached in this profile.")
+                        self.show_message(f"Max {MAX_SOUNDS_PER_PROFILE} sounds reached.")
                 else:
                     self.show_message("Key binding already in use.")
             else:
@@ -175,11 +140,11 @@ class LinxboardApp:
             self.show_message("Error saving profiles.")
 
     def play_sound(self, file):
-        # Stop pipeline if playing
-        self.pipeline.set_state(Gst.State.NULL)
-        # Set URI and play
-        self.decodebin.set_property("uri", Gst.filename_to_uri(file))
-        self.pipeline.set_state(Gst.State.PLAYING)
+        try:
+            sound = AudioSegment.from_file(file)
+            play(sound)
+        except Exception as e:
+            self.show_message(f"Could not play sound: {e}")
 
     def remove_sound(self, widget):
         # Create a dialog to select which sound to remove
@@ -211,46 +176,31 @@ class LinxboardApp:
         for sound_name, sound_data in self.profiles[self.current_profile].items():
             self.add_sound_button(sound_name, sound_data["file"], sound_data["key"])
 
-    def on_pad_added(self, element, pad):
-        if not self.volume.get_static_pad("src").is_linked():
-            pad.link(self.volume.get_static_pad("sink"))
-
-    def request_input(self, message):
-        dialog = Gtk.Dialog(title=message, parent=self.window)
-        entry = Gtk.Entry()
-        dialog.get_content_area().pack_start(entry, True, True, 0)
-        dialog.show_all()
+    def file_dialog(self):
+        dialog = Gtk.FileChooserDialog(
+            title="Select Sound File",
+            parent=self.window,
+            action=Gtk.FileChooserAction.OPEN,
+            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        )
         response = dialog.run()
-        text = entry.get_text() if response == Gtk.ResponseType.OK else ""
+        filename = dialog.get_filename() if response == Gtk.ResponseType.OK else None
         dialog.destroy()
-        return text
+        return filename
 
-    def request_key_binding(self):
-        dialog = Gtk.Dialog(title="Press Key for Binding", parent=self.window)
-        label = Gtk.Label(label="Press the key combination:")
-        dialog.get_content_area().pack_start(label, True, True, 0)
-        dialog.show_all()
-        key = None
-
-        def on_key_press(widget, event):
-            nonlocal key
-            key = Gdk.keyval_name(event.keyval)
-            dialog.response(Gtk.ResponseType.OK)
-
-        self.window.connect("key-press-event", on_key_press)
-        response = dialog.run()
-        self.window.disconnect_by_func(on_key_press)
-        dialog.destroy()
-        return key if response == Gtk.ResponseType.OK else None
+    def get_sound_details(self):
+        questions = [
+            {'type': 'input', 'name': 'name', 'message': 'Enter Sound Name'},
+            {'type': 'input', 'name': 'key', 'message': 'Enter Key Binding'}
+        ]
+        answers = prompt(questions)
+        return answers.get('name'), answers.get('key')
 
     def is_sound_duplicate(self, name):
         return name in self.profiles[self.current_profile]
 
     def is_key_binding_duplicate(self, key):
         return key in self.key_bindings
-
-    def on_volume_changed(self, widget, value):
-        self.volume.set_property("volume", value)
 
     def show_message(self, message):
         dialog = Gtk.MessageDialog(self.window, 0, Gtk.MessageType.INFO, Gtk.ButtonsType.OK, message)
