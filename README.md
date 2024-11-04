@@ -55,12 +55,15 @@ linxboard
 ⚠️ Privacy Matters!
 
 In a world where your every move is tracked, Linxboard is your defense! Use it wisely, because the surveillance state is lurking. They want you to be complacent, to use the software that spies on you! Take control, stay vigilant, and keep your data secure.
+
 💀 Why Linux?
 
 Because Windows is a surveillance nightmare! Ever feel like Microsoft is more than just a software company? Yeah, that’s because they are! With Linux, you don’t just get control; you get freedom. You’re not a puppet on a string. Linxboard is your chance to break free from the shackles of corporate surveillance!
+
 🔫 Join the Fight!
 
 Contribute to the cause! Fork this repo, report issues, or submit pull requests. The more of us that stand together, the harder it is for them to pick us off one by one.
+
 🔥 Connect with the Community
 
 Want to rage against the machine? Join our community on Discord or follow us on Twitter. We’re all in this together, fighting for our right to privacy and expression.
