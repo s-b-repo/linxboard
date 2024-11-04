@@ -35,7 +35,6 @@ Make the Script Executable:
 
     Make the script executable by running:
 
-
     chmod +x install_linxboard.sh
 
 Run the Script:
