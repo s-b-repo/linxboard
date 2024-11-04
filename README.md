@@ -31,7 +31,27 @@ cd linxboard
 
 Launch the Revolution
 
-python3 linxboard.py
+Make the Script Executable:
+
+    Make the script executable by running:
+
+
+    chmod +x install_linxboard.sh
+
+Run the Script:
+
+    Execute the script to install the necessary packages and create the symbolic link:
+
+
+        ./install_linxboard.sh
+
+Running the Application
+
+After the installation is complete, you can run the application from any terminal by simply typing:
+
+bash
+
+linxboard
 
 ⚠️ Privacy Matters!
 
