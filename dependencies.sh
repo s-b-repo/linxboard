@@ -14,7 +14,7 @@ if [ -f /etc/arch-release ]; then
 elif [ -f /etc/debian_version ]; then
   # Debian-based systems (Debian, Ubuntu, etc.)
   apt-get update
-  apt-get install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly pip
+  apt install python3-gi gir1.2-gtk-3.0 gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
   pip install PyGObject
 else
   echo "Unsupported operating system"
