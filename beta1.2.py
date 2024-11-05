@@ -244,21 +244,50 @@ def play_sound(self, file):
         dialog.run()
         dialog.destroy()
 
-    def change_border_color(self):
-        colors = ["#FF00FF", "#00FFFF", "#00FF00", "#FF0000", "#FFFF00"]
+    # def change_border_color(self):
+      #  colors = ["#FF00FF", "#00FFFF", "#00FF00", "#FF0000", "#FFFF00"]
+       # new_color = random.choice(colors)
+        # css = f"""
+#        window {{
+ #           border: 3px solid {new_color};
+  #      }}
+   #     """
+    #    style_provider = Gtk.CssProvider()
+     #   style_provider.load_from_data(css.encode("utf-8"))
+      #  Gtk.StyleContext.add_provider_for_screen(
+       #     Gdk.Screen.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+  #      )
+   #     return True
+
+def change_border_color():
+    # Define a list of neon colors for the RGB-like effect
+    colors = ["#FF00FF", "#00FFFF", "#00FF00", "#FF0000", "#FFFF00"]
+    
+    def update_color():
+        # Randomly select the next color for the border
         new_color = random.choice(colors)
+
+        # Create CSS for the window border with the chosen color
         css = f"""
         window {{
             border: 3px solid {new_color};
         }}
         """
+
+        # Initialize a CSS provider and load the CSS
         style_provider = Gtk.CssProvider()
         style_provider.load_from_data(css.encode("utf-8"))
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+
+        # Apply the CSS to the default screen
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        # Return True to keep the timer running for continuous color updates
         return True
 
+    # Start the timer to repeatedly call update_color every 100 milliseconds
+    GLib.timeout_add(100, update_color)
+    
     def select_output_device(self, widget=None):
         devices = sd.query_devices()
         output_devices = [d['name'] for d in devices if d['max_output_channels'] > 0]
