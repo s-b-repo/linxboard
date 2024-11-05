@@ -160,20 +160,36 @@ class LinxboardApp:
         except IOError:
             self.show_message("Error saving profiles.")
 
-    def play_sound(self, file):
-        try:
-            sound = AudioSegment.from_file(file)
-            sound.export("temp_sound.wav", format="wav")  # Export to a .wav file for playback
-            # Play sound through specified output device
-            if self.output_device is not None:
-                # Load the .wav file and play with sounddevice using the selected output device
-                data, fs = sa.WaveObject.from_wave_file("temp_sound.wav")
-                sd.play(data, samplerate=fs, device=self.output_device)
-            else:
-                _play_with_simpleaudio(AudioSegment.from_file("temp_sound.wav"))
-        except Exception as e:
-            self.show_message(f"Could not play sound: {e}")
-
+  #  def play_sound(self, file):
+   #     try:
+    #        sound = AudioSegment.from_file(file)
+     #       sound.export("temp_sound.wav", format="wav")  # Export to a .wav file for playback
+      #      # Play sound through specified output device
+       #     if self.output_device is not None:
+        #        # Load the .wav file and play with sounddevice using the selected output device
+         #       data, fs = sa.WaveObject.from_wave_file("temp_sound.wav")
+          #      sd.play(data, samplerate=fs, device=self.output_device)
+           # else:
+            #    _play_with_simpleaudio(AudioSegment.from_file("temp_sound.wav"))
+        # except Exception as e:
+          #  self.show_message(f"Could not play sound: {e}")
+def play_sound(self, file):
+    try:
+        sound = AudioSegment.from_file(file)
+        temp_path = "temp_sound.wav"
+        sound.export(temp_path, format="wav")
+        if self.output_device is not None:
+            wave_obj = sa.WaveObject.from_wave_file(temp_path)
+            play_obj = wave_obj.play()
+            play_obj.wait_done()
+        else:
+            _play_with_simpleaudio(AudioSegment.from_file(temp_path))
+    except Exception as e:
+        self.show_message(f"Could not play sound: {e}")
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+    
     def remove_sound(self, widget):
         # Create a dialog to select which sound to remove
         dialog = Gtk.Dialog(title="Remove Sound", parent=self.window)
