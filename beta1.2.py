@@ -10,6 +10,7 @@ import configparser
 import sounddevice as sd  # To select audio output device
 import tkinter as tk
 from tkinter import filedialog
+import gi
 
 # Constants
 MAX_SOUNDS_PER_PROFILE = 10
@@ -73,23 +74,6 @@ class LinxboardApp:
         self.sound_box = Gtk.Box(spacing=6)
         vbox.pack_start(self.sound_box, True, True, 0)
 
-        self.window.show_all()
-        # Initialize the main window
-        self.window = Gtk.Window()
-        self.window.set_default_size(400, 300)
-        self.window.set_title("Neon Border and Dynamic Background")
-        
-        # Apply initial CSS
-        self.apply_css()
-
-        # Main layout setup
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.window.add(vbox)
-
-        # Toolbar with background change button
-        toolbar = Gtk.Box(spacing=6)
-        vbox.pack_start(toolbar, False, False, 0)
-
         # Change Background Button
         change_bg_button = Gtk.Button(label="Change Background")
         change_bg_button.connect("clicked", self.on_change_background_clicked)
@@ -100,7 +84,6 @@ class LinxboardApp:
 
     def apply_css(self, image_path=None):
         style_provider = Gtk.CssProvider()
-        # If an image path is provided, set it as the background
         background_image_css = f"background-image: url('{image_path}');" if image_path else "background-color: #222;"
         
         css = f"""
@@ -138,7 +121,6 @@ class LinxboardApp:
         )
 
     def on_change_background_clicked(self, widget):
-        # Open a file chooser dialog to select an image
         dialog = Gtk.FileChooserDialog(
             title="Please choose a background image", 
             parent=self.window,
@@ -146,7 +128,6 @@ class LinxboardApp:
         )
         dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
         
-        # Add filter for image files
         filter_text = Gtk.FileFilter()
         filter_text.set_name("Image files")
         filter_text.add_mime_type("image/png")
@@ -155,10 +136,10 @@ class LinxboardApp:
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            # Get the selected file path and apply it as the background
             image_path = dialog.get_filename()
-            self.apply_css(image_path)  # Apply new CSS with the chosen image
+            self.apply_css(image_path)
         dialog.destroy()
+
     
 #    def apply_css(self):
  #       style_provider = Gtk.CssProvider()
