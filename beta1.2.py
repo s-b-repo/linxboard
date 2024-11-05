@@ -74,30 +74,115 @@ class LinxboardApp:
         vbox.pack_start(self.sound_box, True, True, 0)
 
         self.window.show_all()
+        # Initialize the main window
+        self.window = Gtk.Window()
+        self.window.set_default_size(400, 300)
+        self.window.set_title("Neon Border and Dynamic Background")
+        
+        # Apply initial CSS
+        self.apply_css()
 
-    def apply_css(self):
+        # Main layout setup
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.window.add(vbox)
+
+        # Toolbar with background change button
+        toolbar = Gtk.Box(spacing=6)
+        vbox.pack_start(toolbar, False, False, 0)
+
+        # Change Background Button
+        change_bg_button = Gtk.Button(label="Change Background")
+        change_bg_button.connect("clicked", self.on_change_background_clicked)
+        toolbar.pack_start(change_bg_button, True, True, 0)
+
+        # Show all components
+        self.window.show_all()
+
+    def apply_css(self, image_path=None):
         style_provider = Gtk.CssProvider()
-        css = """
-        window {
-            background: #222;
+        # If an image path is provided, set it as the background
+        background_image_css = f"background-image: url('{image_path}');" if image_path else "background-color: #222;"
+        
+        css = f"""
+        window {{
+            {background_image_css}
+            background-size: cover;
+            background-position: center;
             border: 3px solid #00ff00;
             border-radius: 10px;
-        }
-        button {
-            background-color: #444;
+        }}
+
+        button {{
+            background-color: rgba(68, 68, 68, 0.8);
             color: white;
             border-radius: 5px;
             padding: 5px;
-        }
-        button:hover {
-            background-color: #555;
-            box-shadow: 0 0 10px #00ff00;
-        }
+            border: 1px solid transparent;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }}
+
+        button:hover {{
+            background-color: rgba(85, 85, 85, 0.8);
+            border-color: #00ff00;
+            box-shadow: 0 0 15px #00ff00;
+        }}
+
+        button:active {{
+            background-color: rgba(51, 51, 51, 0.8);
+            box-shadow: 0 0 5px #00ff00;
+        }}
         """
         style_provider.load_from_data(css.encode("utf-8"))
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
+
+    def on_change_background_clicked(self, widget):
+        # Open a file chooser dialog to select an image
+        dialog = Gtk.FileChooserDialog(
+            title="Please choose a background image", 
+            parent=self.window,
+            action=Gtk.FileChooserAction.OPEN
+        )
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        
+        # Add filter for image files
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Image files")
+        filter_text.add_mime_type("image/png")
+        filter_text.add_mime_type("image/jpeg")
+        dialog.add_filter(filter_text)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            # Get the selected file path and apply it as the background
+            image_path = dialog.get_filename()
+            self.apply_css(image_path)  # Apply new CSS with the chosen image
+        dialog.destroy()
+    
+#    def apply_css(self):
+ #       style_provider = Gtk.CssProvider()
+  #      css = """
+   #     window {
+    #        background: #222;
+     #       border: 3px solid #00ff00;
+      #      border-radius: 10px;
+     #   }
+    #    button {
+   #         background-color: #444;
+  #          color: white;
+  #          border-radius: 5px;
+  #          padding: 5px;
+ #       }
+#        button:hover {
+       #     background-color: #555;
+      #      box-shadow: 0 0 10px #00ff00;
+     #   }
+    #    """
+   #     style_provider.load_from_data(css.encode("utf-8"))
+  #      Gtk.StyleContext.add_provider_for_screen(
+ #           Gdk.Screen.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+#        )
 
     def load_profiles(self):
         try:
