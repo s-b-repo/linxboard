@@ -2,222 +2,241 @@ import os
 import json
 import random
 import pygame
+import webbrowser
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QComboBox, QLineEdit, QSlider, QLabel, QGridLayout, QMessageBox
+    QComboBox, QLineEdit, QSlider, QLabel, QGridLayout, QMessageBox,
+    QFileDialog, QInputDialog, QMenu, QTabWidget, QDialog, QCheckBox
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QObject
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QTimer, QObject, Signal, QSize
+from PySide6.QtGui import QColor, QKeySequence, QAction, QIcon
 
-class SoundPlayer(QObject):
-    sound_stopped = Signal()
-
-    def __init__(self):
-        super().__init__()
-        pygame.mixer.init()
-        self.current_sound = None
-
-    def play(self, file_path, volume):
-        if self.current_sound:
-            self.current_sound.stop()
-        self.current_sound = pygame.mixer.Sound(file_path)
-        self.current_sound.set_volume(volume)
-        self.current_sound.play()
-        self.sound_stopped.emit()
-
-class SoundButton(QPushButton):
-    def __init__(self, text, file_path, key_binding, parent=None):
-        super().__init__(text, parent)
-        self.file_path = file_path
-        self.key_binding = key_binding
-        self.setMinimumSize(120, 80)
-        self.setStyleSheet("""
-            SoundButton {
-                background-color: #2a2a3f;
-                color: white;
-                border: 2px solid #00ff00;
-                border-radius: 10px;
-                font-size: 14px;
-                padding: 10px;
-            }
-            SoundButton:hover {
-                background-color: #3a3a4f;
-                border: 2px solid #00ff00;
-                box-shadow: 0 0 15px #00ff00;
-            }
-        """)
-
-class Soundboard(QWidget):
+class AdvancedSoundboard(QWidget):
     def __init__(self):
         super().__init__()
         self.sound_player = SoundPlayer()
         self.current_profile = "Default"
         self.profiles = {}
-        self.active_buttons = []
-        self.colors = ["#FF00FF", "#00FFFF", "#00FF00", "#FF0000", "#FFFF00"]
-        
+        self.easter_egg_counter = 0
+        self.troll_mode_active = False
+        self.volume_before_mute = 50
         self.init_ui()
         self.load_profiles()
         self.setup_animations()
+        self.load_settings()
 
     def init_ui(self):
-        self.setWindowTitle("Opera GX Soundboard")
-        self.setMinimumSize(800, 600)
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #1e1e2f;
-                color: white;
-            }
-            QComboBox, QLineEdit {
-                background-color: #2a2a3f;
-                border: 1px solid #00ff00;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QSlider::groove:horizontal {
-                background: #2a2a3f;
-                height: 8px;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #00ff00;
-                width: 16px;
-                margin: -4px 0;
-                border-radius: 8px;
-            }
-        """)
-
+        self.setWindowTitle("Ultimate Soundboard 9000")
+        self.setMinimumSize(1024, 768)
+        self.setWindowIcon(QIcon("icon.png"))
+        self.setup_styles()
+        
         main_layout = QVBoxLayout()
         
-        # Toolbar
+        # Top toolbar
         toolbar = QHBoxLayout()
+        self.setup_toolbar(toolbar)
+        main_layout.addLayout(toolbar)
+
+        # Category tabs
+        self.tabs = QTabWidget()
+        self.tabs.setTabPosition(QTabWidget.West)
+        main_layout.addWidget(self.tabs)
+
+        # Control panel
+        control_panel = QHBoxLayout()
+        self.setup_control_panel(control_panel)
+        main_layout.addLayout(control_panel)
+
+        self.setLayout(main_layout)
+        self.setup_context_menu()
+
+    def setup_toolbar(self, toolbar):
+        # Profile management
         self.profile_combo = QComboBox()
-        self.profile_combo.currentTextChanged.connect(self.load_profile)
+        self.profile_combo.setFixedWidth(150)
         toolbar.addWidget(self.profile_combo)
 
-        add_profile_btn = QPushButton("➕ Profile")
-        add_profile_btn.clicked.connect(self.add_profile)
+        add_profile_btn = self.create_toolbar_button("➕", self.add_profile)
+        remove_profile_btn = self.create_toolbar_button("➖", self.remove_profile)
         toolbar.addWidget(add_profile_btn)
-
-        remove_profile_btn = QPushButton("➖ Profile")
-        remove_profile_btn.clicked.connect(self.remove_profile)
         toolbar.addWidget(remove_profile_btn)
 
+        # Sound management
+        add_sound_btn = self.create_toolbar_button("🎵 Add Sound", self.add_sound_dialog)
+        toolbar.addWidget(add_sound_btn)
+
+        # Easter Egg button (hidden)
+        self.easter_egg_btn = QPushButton("🐰")
+        self.easter_egg_btn.setVisible(False)
+        self.easter_egg_btn.clicked.connect(self.activate_easter_egg)
+        toolbar.addWidget(self.easter_egg_btn)
+
+        # Troll Mode
+        self.troll_mode_btn = QPushButton("😈 Troll Mode")
+        self.troll_mode_btn.setCheckable(True)
+        self.troll_mode_btn.toggled.connect(self.toggle_troll_mode)
+        toolbar.addWidget(self.troll_mode_btn)
+
+        # Search bar
         self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Search sounds...")
+        self.search_bar.setPlaceholderText("🔍 Search sounds...")
         self.search_bar.textChanged.connect(self.filter_sounds)
         toolbar.addWidget(self.search_bar)
 
-        main_layout.addLayout(toolbar)
-
-        # Sound grid
-        self.sound_grid = QGridLayout()
-        self.sound_grid.setSpacing(15)
-        main_layout.addLayout(self.sound_grid)
-
-        # Volume control
-        volume_layout = QHBoxLayout()
-        volume_layout.addWidget(QLabel("Volume:"))
+    def setup_control_panel(self, panel):
+        # Volume controls
         self.volume_slider = QSlider(Qt.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(50)
         self.volume_slider.valueChanged.connect(self.update_volume)
-        volume_layout.addWidget(self.volume_slider)
-        main_layout.addLayout(volume_layout)
+        panel.addWidget(QLabel("🔊 Volume:"))
+        panel.addWidget(self.volume_slider)
 
-        self.setLayout(main_layout)
+        # Fake volume slider (April Fools)
+        self.fake_volume = QSlider(Qt.Horizontal)
+        self.fake_volume.setVisible(False)
+        panel.addWidget(self.fake_volume)
 
-    def setup_animations(self):
-        self.border_color_index = 0
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.animate_border)
-        self.timer.start(1000)
+        # Special effects
+        self.loop_checkbox = QCheckBox("🔁 Loop")
+        self.random_btn = QPushButton("🎲 Random Sound")
+        self.random_btn.clicked.connect(self.play_random_sound)
+        panel.addWidget(self.loop_checkbox)
+        panel.addWidget(self.random_btn)
 
-    def animate_border(self):
-        self.border_color_index = (self.border_color_index + 1) % len(self.colors)
-        self.setStyleSheet(f"""
-            QWidget {{
-                border: 3px solid {self.colors[self.border_color_index]};
-                border-radius: 10px;
-            }}
-            {self.styleSheet()}
-        """)
-
-    def load_profiles(self):
-        try:
-            if os.path.exists("profiles.json"):
-                with open("profiles.json", "r") as f:
-                    self.profiles = json.load(f)
-            else:
-                self.profiles = {"Default": {}}
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load profiles: {str(e)}")
+    # --------------------------
+    # Core Functionality
+    # --------------------------
+    
+    def add_sound_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add New Sound")
         
-        self.profile_combo.clear()
-        self.profile_combo.addItems(self.profiles.keys())
-        self.load_profile()
-
-    def save_profiles(self):
-        try:
-            with open("profiles.json", "w") as f:
-                json.dump(self.profiles, f)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save profiles: {str(e)}")
-
-    def load_profile(self):
-        self.current_profile = self.profile_combo.currentText()
-        self.clear_sound_grid()
-        profile_data = self.profiles.get(self.current_profile, {})
+        layout = QVBoxLayout()
+        name_input = QLineEdit()
+        key_input = QLineEdit()
+        file_input = QLineEdit()
+        browse_btn = QPushButton("Browse...")
+        browse_btn.clicked.connect(lambda: self.select_sound_file(file_input))
         
-        row, col = 0, 0
-        for name, data in profile_data.items():
-            btn = SoundButton(f"{name}\n({data['key']})", data["file"], data["key"])
-            btn.clicked.connect(lambda _, p=data["file"]: self.sound_player.play(p, self.volume_slider.value()/100))
-            self.sound_grid.addWidget(btn, row, col)
-            self.active_buttons.append(btn)
-            col = (col + 1) % 4
-            if col == 0:
-                row += 1
+        layout.addWidget(QLabel("Sound Name:"))
+        layout.addWidget(name_input)
+        layout.addWidget(QLabel("Hotkey:"))
+        layout.addWidget(key_input)
+        layout.addWidget(QLabel("Sound File:"))
+        layout.addWidget(file_input)
+        layout.addWidget(browse_btn)
+        
+        buttons = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        buttons.addWidget(ok_btn)
+        buttons.addWidget(cancel_btn)
+        
+        layout.addLayout(buttons)
+        dialog.setLayout(layout)
+        
+        if dialog.exec():
+            self.add_sound(
+                name_input.text(),
+                file_input.text(),
+                key_input.text().upper()
+            )
 
-    def clear_sound_grid(self):
-        for btn in self.active_buttons:
-            btn.deleteLater()
-        self.active_buttons.clear()
+    def add_sound(self, name, path, key):
+        # Add to current category
+        pass
 
-    def filter_sounds(self):
-        search_text = self.search_bar.text().lower()
-        for btn in self.active_buttons:
-            visible = search_text in btn.text().lower()
-            btn.setVisible(visible)
+    # --------------------------
+    # Easter Eggs & Troll Features
+    # --------------------------
+    
+    def mousePressEvent(self, event):
+        # Hidden area click detector
+        if event.pos().x() < 50 and event.pos().y() < 50:
+            self.easter_egg_counter += 1
+            if self.easter_egg_counter == 5:
+                self.easter_egg_btn.setVisible(True)
+                QMessageBox.information(self, "Surprise!", "You found the bunny! 🐇")
+        super().mousePressEvent(event)
 
-    def update_volume(self, value):
-        if self.sound_player.current_sound:
-            self.sound_player.current_sound.set_volume(value/100)
+    def activate_easter_egg(self):
+        self.play_sound("secret_sound.mp3")
+        webbrowser.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
-    def add_profile(self):
-        name, ok = QInputDialog.getText(self, "New Profile", "Profile name:")
-        if ok and name:
-            self.profiles[name] = {}
-            self.profile_combo.addItem(name)
-            self.save_profiles()
-
-    def remove_profile(self):
-        current = self.profile_combo.currentText()
-        if current == "Default":
-            QMessageBox.warning(self, "Warning", "Cannot delete default profile!")
-            return
+    def toggle_troll_mode(self, active):
+        self.troll_mode_active = active
+        if active:
+            self.troll_timer = QTimer()
+            self.troll_timer.timeout.connect(self.play_troll_sound)
+            self.troll_timer.start(random.randint(5000, 15000))
             
-        confirm = QMessageBox.question(
-            self, "Confirm Delete", f"Delete profile '{current}'?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if confirm == QMessageBox.Yes:
-            del self.profiles[current]
-            self.profile_combo.removeItem(self.profile_combo.currentIndex())
-            self.save_profiles()
+            # Switch to fake volume control
+            self.volume_slider.setVisible(False)
+            self.fake_volume.setVisible(True)
+        else:
+            self.troll_timer.stop()
+            self.volume_slider.setVisible(True)
+            self.fake_volume.setVisible(False)
+
+    def play_troll_sound(self):
+        if self.profiles[self.current_profile]:
+            random_sound = random.choice(list(self.profiles[self.current_profile].values()))
+            self.sound_player.play(random_sound["file"], self.volume_slider.value()/100)
+
+    # --------------------------
+    # Additional Features
+    # --------------------------
+    
+    def setup_context_menu(self):
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        
+        # Add custom actions
+        panic_action = QAction("🚨 Panic Button", self)
+        panic_action.triggered.connect(self.stop_all_sounds)
+        self.addAction(panic_action)
+        
+        airhorn_action = QAction("📯 Mega Airhorn", self)
+        airhorn_action.triggered.connect(lambda: self.play_sound("airhorn.mp3"))
+        self.addAction(airhorn_action)
+
+    def stop_all_sounds(self):
+        pygame.mixer.stop()
+        self.sound_player.current_sound = None
+
+    def play_random_sound(self):
+        # Implement random sound selection
+        pass
+
+    # --------------------------
+    # Settings Management
+    # --------------------------
+    
+    def load_settings(self):
+        try:
+            with open("settings.json") as f:
+                settings = json.load(f)
+                self.restoreGeometry(settings["geometry"])
+        except:
+            pass
+
+    def save_settings(self):
+        settings = {
+            "geometry": self.saveGeometry(),
+            "volume": self.volume_slider.value()
+        }
+        with open("settings.json", "w") as f:
+            json.dump(settings, f)
+
+    def closeEvent(self, event):
+        self.save_settings()
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = Soundboard()
-    window.show()
+    board = AdvancedSoundboard()
+    board.show()
     app.exec()
