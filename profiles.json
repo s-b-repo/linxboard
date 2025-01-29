@@ -1,0 +1,12 @@
+{
+    "Default": {
+        "Air Horn": {
+            "file": "sounds/airhorn.mp3",
+            "key": "F1"
+        },
+        "Drum Roll": {
+            "file": "sounds/drumroll.mp3",
+            "key": "F2"
+        }
+    }
+}
