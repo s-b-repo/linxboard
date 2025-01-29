@@ -1,9 +1,9 @@
-import gi
+
 import os
 import json
 import random
 import threading
-from gi.repository import Gtk, Gdk, GObject, Gst, GLib
+
 
 gi.require_version("Gst", "1.0")
 Gst.init(None)
