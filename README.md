@@ -17,7 +17,15 @@ Prerequisites
 
 First, install the following. Don’t worry, it’s just the basics. What’s more terrifying than using proprietary software?
 
-sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+pip install PySide6 pygame python-vlc
+
+    Create these files:
+
+    icon.png (soundboard icon)
+
+    sounds/ directory with sound files
+
+    profiles.json with your sound configurations
 
 Clone the Repository of Resistance
 
