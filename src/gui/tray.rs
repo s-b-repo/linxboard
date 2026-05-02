@@ -17,6 +17,8 @@ fn run_tray(msg_tx: Sender<Message>) -> anyhow::Result<()> {
     use muda::{Menu, MenuEvent, MenuItem};
     use tray_icon::{Icon, TrayIconBuilder};
 
+    gtk::init().map_err(|e| anyhow::anyhow!("GTK init failed: {}", e))?;
+
     let menu = Menu::new();
     let show_item = MenuItem::new("Show", true, None);
     let stop_item = MenuItem::new("Stop All", true, None);
@@ -38,18 +40,25 @@ fn run_tray(msg_tx: Sender<Message>) -> anyhow::Result<()> {
         .build()?;
 
     let menu_rx = MenuEvent::receiver();
-    loop {
-        if let Ok(event) = menu_rx.recv() {
-            if event.id() == show_item.id() {
+    let show_id = show_item.id().clone();
+    let stop_id = stop_item.id().clone();
+    let quit_id = quit_item.id().clone();
+
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+        while let Ok(event) = menu_rx.try_recv() {
+            if event.id() == &show_id {
                 let _ = msg_tx.send(Message::ShowWindow);
-            } else if event.id() == stop_item.id() {
+            } else if event.id() == &stop_id {
                 let _ = msg_tx.send(Message::PanicStop);
-            } else if event.id() == quit_item.id() {
+            } else if event.id() == &quit_id {
                 let _ = msg_tx.send(Message::Quit);
-                break;
+                return gtk::glib::ControlFlow::Break;
             }
         }
-    }
+        gtk::glib::ControlFlow::Continue
+    });
+
+    gtk::main();
 
     Ok(())
 }
