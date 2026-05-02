@@ -156,6 +156,43 @@ impl ProfileManager {
         Ok(())
     }
 
+    pub fn toggle_favorite(&mut self, tab: &str, name: &str) {
+        let profile = self.current_mut();
+        if let Some(tab) = profile.tabs.get_mut(tab) {
+            if let Some(sound) = tab.sounds.get_mut(name) {
+                sound.favorite = !sound.favorite;
+            }
+        }
+    }
+
+    pub fn set_trim(&mut self, tab: &str, name: &str, start_ms: u64, end_ms: Option<u64>) {
+        let profile = self.current_mut();
+        if let Some(tab) = profile.tabs.get_mut(tab) {
+            if let Some(sound) = tab.sounds.get_mut(name) {
+                sound.start_ms = start_ms;
+                sound.end_ms = end_ms;
+            }
+        }
+    }
+
+    pub fn set_play_mode(&mut self, tab: &str, name: &str, mode: PlayMode) {
+        let profile = self.current_mut();
+        if let Some(tab) = profile.tabs.get_mut(tab) {
+            if let Some(sound) = tab.sounds.get_mut(name) {
+                sound.play_mode = mode;
+            }
+        }
+    }
+
+    pub fn set_sound_volume(&mut self, tab: &str, name: &str, volume: f32) {
+        let profile = self.current_mut();
+        if let Some(tab) = profile.tabs.get_mut(tab) {
+            if let Some(sound) = tab.sounds.get_mut(name) {
+                sound.volume = volume;
+            }
+        }
+    }
+
     pub fn all_hotkey_bindings(&self) -> Vec<(HotkeyBinding, std::path::PathBuf)> {
         let mut bindings = Vec::new();
         for profile in self.profiles.values() {

@@ -7,10 +7,16 @@ use tokio::sync::mpsc;
 use super::keycodes::{evdev_key_to_code, evdev_key_to_modifier};
 use crate::profile::model::{HotkeyBinding, Modifier};
 
+#[derive(Debug, Clone)]
+pub enum HotkeyEvent {
+    Pressed(HotkeyBinding),
+    Released(HotkeyBinding),
+}
+
 pub struct HotkeyListener;
 
 impl HotkeyListener {
-    pub fn spawn(event_tx: mpsc::UnboundedSender<HotkeyBinding>) -> tokio::task::JoinHandle<()> {
+    pub fn spawn(event_tx: mpsc::UnboundedSender<HotkeyEvent>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             if let Err(e) = Self::run(event_tx).await {
                 log::error!("Hotkey listener error: {}", e);
@@ -18,7 +24,7 @@ impl HotkeyListener {
         })
     }
 
-    async fn run(event_tx: mpsc::UnboundedSender<HotkeyBinding>) -> anyhow::Result<()> {
+    async fn run(event_tx: mpsc::UnboundedSender<HotkeyEvent>) -> anyhow::Result<()> {
         let keyboards = find_keyboard_devices();
         if keyboards.is_empty() {
             anyhow::bail!("No keyboard devices found");
@@ -68,7 +74,7 @@ fn find_keyboard_devices() -> Vec<PathBuf> {
 
 async fn listen_device(
     path: PathBuf,
-    tx: mpsc::UnboundedSender<HotkeyBinding>,
+    tx: mpsc::UnboundedSender<HotkeyEvent>,
 ) -> anyhow::Result<()> {
     let device = Device::open(&path)?;
     let mut stream = device.into_event_stream()?;
@@ -89,7 +95,7 @@ async fn listen_device(
                     }
                     _ => {}
                 }
-            } else if value == 1 {
+            } else {
                 let binding = HotkeyBinding {
                     modifiers: {
                         let mut mods: Vec<Modifier> = active_mods.iter().copied().collect();
@@ -103,7 +109,16 @@ async fn listen_device(
                     },
                     key: evdev_key_to_code(key),
                 };
-                let _ = tx.send(binding);
+
+                match value {
+                    1 => {
+                        let _ = tx.send(HotkeyEvent::Pressed(binding));
+                    }
+                    0 => {
+                        let _ = tx.send(HotkeyEvent::Released(binding));
+                    }
+                    _ => {}
+                }
             }
         }
     }

@@ -12,6 +12,7 @@ use crate::audio::AudioCommand;
 use crate::config::AppSettings;
 use crate::gui::dialogs::DialogState;
 use crate::gui::{controls, dialogs, tab_panel, toolbar};
+use crate::hotkeys::HotkeyEvent;
 use crate::profile::model::HotkeyBinding;
 use crate::profile::ProfileManager;
 
@@ -28,17 +29,52 @@ pub enum Message {
     TabDeleteCurrent,
 
     SoundPlay(PathBuf),
+    SoundStop(PathBuf),
     SoundPlayRandom,
     SoundAddDialog,
-    SoundRemove { tab: String, name: String },
-    SoundRenameDialog { tab: String, name: String },
-    SoundSetHotkeyDialog { tab: String, name: String },
+    SoundRemove {
+        tab: String,
+        name: String,
+    },
+    SoundRenameDialog {
+        tab: String,
+        name: String,
+    },
+    SoundSetHotkeyDialog {
+        tab: String,
+        name: String,
+    },
+    SoundToggleFavorite {
+        tab: String,
+        name: String,
+    },
+    SoundSettingsDialog {
+        tab: String,
+        name: String,
+    },
+    SoundSetTrim {
+        tab: String,
+        name: String,
+        start_ms: u64,
+        end_ms: Option<u64>,
+    },
+    SoundSetPlayMode {
+        tab: String,
+        name: String,
+        mode: crate::profile::model::PlayMode,
+    },
+    SoundSetVolume {
+        tab: String,
+        name: String,
+        volume: f32,
+    },
 
     VolumeChanged(f32),
     LoopToggled(bool),
     PanicStop,
 
     HotkeyPressed(HotkeyBinding),
+    HotkeyReleased(HotkeyBinding),
 
     TrollModeToggled(bool),
     TrollTick,
@@ -60,7 +96,7 @@ pub struct LinxboardApp {
     profile_manager: ProfileManager,
     settings: AppSettings,
     audio_tx: CrossbeamSender<AudioCommand>,
-    hotkey_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<HotkeyBinding>>>>,
+    hotkey_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<HotkeyEvent>>>>,
     tray_rx: Arc<Mutex<CrossbeamReceiver<Message>>>,
 
     current_tab_index: usize,
@@ -84,7 +120,7 @@ enum FileAction {
 impl LinxboardApp {
     pub fn new(
         audio_tx: CrossbeamSender<AudioCommand>,
-        hotkey_rx: mpsc::UnboundedReceiver<HotkeyBinding>,
+        hotkey_rx: mpsc::UnboundedReceiver<HotkeyEvent>,
         tray_rx: CrossbeamReceiver<Message>,
     ) -> (Self, Task<Message>) {
         let settings = AppSettings::load();
@@ -169,12 +205,22 @@ impl LinxboardApp {
                 self.current_tab_index = 0;
                 let _ = self.profile_manager.save();
             }
-            Message::SoundPlay(path) => {
+            Message::SoundPlay(ref path) => {
+                self.increment_play_count(path);
+                let sound_info = self.find_sound_info(path);
+                let (start_ms, end_ms) = sound_info
+                    .map(|s| (s.start_ms, s.end_ms))
+                    .unwrap_or((0, None));
                 let _ = self.audio_tx.send(AudioCommand::Play {
-                    path,
+                    path: path.clone(),
                     volume: self.volume,
                     looping: self.loop_enabled,
+                    start_ms,
+                    end_ms,
                 });
+            }
+            Message::SoundStop(path) => {
+                let _ = self.audio_tx.send(AudioCommand::StopSound { path });
             }
             Message::SoundPlayRandom => {
                 if let Some(path) = self.random_sound_path() {
@@ -182,6 +228,8 @@ impl LinxboardApp {
                         path,
                         volume: self.volume,
                         looping: false,
+                        start_ms: 0,
+                        end_ms: None,
                     });
                 }
             }
@@ -204,6 +252,48 @@ impl LinxboardApp {
                 self.hotkey_capture_target = Some((tab, name));
                 self.dialog = Some(DialogState::CaptureHotkey);
             }
+            Message::SoundToggleFavorite { tab, name } => {
+                self.profile_manager.toggle_favorite(&tab, &name);
+                let _ = self.profile_manager.save();
+            }
+            Message::SoundSettingsDialog { tab, name } => {
+                let sound_info = {
+                    let profile = self.profile_manager.current();
+                    profile
+                        .tabs
+                        .get(&tab)
+                        .and_then(|t| t.sounds.get(&name))
+                        .cloned()
+                };
+                if let Some(sound) = sound_info {
+                    self.dialog = Some(DialogState::SoundSettings {
+                        tab,
+                        name,
+                        volume: sound.volume,
+                        start_ms: sound.start_ms,
+                        end_ms: sound.end_ms,
+                        push_to_play: sound.play_mode
+                            == crate::profile::model::PlayMode::PushToPlay,
+                    });
+                }
+            }
+            Message::SoundSetTrim {
+                tab,
+                name,
+                start_ms,
+                end_ms,
+            } => {
+                self.profile_manager.set_trim(&tab, &name, start_ms, end_ms);
+                let _ = self.profile_manager.save();
+            }
+            Message::SoundSetPlayMode { tab, name, mode } => {
+                self.profile_manager.set_play_mode(&tab, &name, mode);
+                let _ = self.profile_manager.save();
+            }
+            Message::SoundSetVolume { tab, name, volume } => {
+                self.profile_manager.set_sound_volume(&tab, &name, volume);
+                let _ = self.profile_manager.save();
+            }
             Message::VolumeChanged(v) => {
                 self.volume = v;
                 let _ = self.audio_tx.send(AudioCommand::SetMasterVolume(v));
@@ -220,12 +310,24 @@ impl LinxboardApp {
                     self.profile_manager.set_hotkey(&tab, &name, Some(binding));
                     let _ = self.profile_manager.save();
                     self.dialog = None;
-                } else if let Some(path) = self.find_sound_for_hotkey(&binding) {
+                } else if let Some(sound) = self.find_sound_for_hotkey_full(&binding) {
+                    self.increment_play_count(&sound.file);
                     let _ = self.audio_tx.send(AudioCommand::Play {
-                        path,
-                        volume: self.volume,
+                        path: sound.file,
+                        volume: self.volume * sound.volume,
                         looping: self.loop_enabled,
+                        start_ms: sound.start_ms,
+                        end_ms: sound.end_ms,
                     });
+                }
+            }
+            Message::HotkeyReleased(binding) => {
+                if let Some(sound) = self.find_sound_for_hotkey_full(&binding) {
+                    if sound.play_mode == crate::profile::model::PlayMode::PushToPlay {
+                        let _ = self
+                            .audio_tx
+                            .send(AudioCommand::StopSound { path: sound.file });
+                    }
                 }
             }
             Message::TrollModeToggled(enabled) => {
@@ -238,6 +340,8 @@ impl LinxboardApp {
                             path,
                             volume: self.volume,
                             looping: false,
+                            start_ms: 0,
+                            end_ms: None,
                         });
                     }
                 }
@@ -282,6 +386,7 @@ impl LinxboardApp {
                         DialogState::CaptureHotkey => {
                             self.hotkey_capture_target = None;
                         }
+                        DialogState::SoundSettings { .. } => {}
                     }
                 }
             }
@@ -304,6 +409,11 @@ impl LinxboardApp {
                                 hotkey: None,
                                 volume: 1.0,
                                 color: None,
+                                start_ms: 0,
+                                end_ms: None,
+                                play_mode: crate::profile::model::PlayMode::Toggle,
+                                favorite: false,
+                                play_count: 0,
                             };
                             self.profile_manager.add_sound(&tab_name, &name, sound);
                             let _ = self.profile_manager.save();
@@ -393,9 +503,13 @@ impl LinxboardApp {
             "hotkeys",
             futures::stream::unfold(hotkey_rx, |rx| async move {
                 let mut receiver = rx.lock().unwrap().take()?;
-                let binding = receiver.recv().await?;
+                let event = receiver.recv().await?;
                 *rx.lock().unwrap() = Some(receiver);
-                Some((Message::HotkeyPressed(binding), rx))
+                let msg = match event {
+                    HotkeyEvent::Pressed(b) => Message::HotkeyPressed(b),
+                    HotkeyEvent::Released(b) => Message::HotkeyReleased(b),
+                };
+                Some((msg, rx))
             }),
         ));
 
@@ -420,16 +534,43 @@ impl LinxboardApp {
         Subscription::batch(subs)
     }
 
-    fn find_sound_for_hotkey(&self, binding: &HotkeyBinding) -> Option<PathBuf> {
+    fn find_sound_for_hotkey_full(
+        &self,
+        binding: &HotkeyBinding,
+    ) -> Option<crate::profile::model::Sound> {
         let profile = self.profile_manager.current();
         for tab in profile.tabs.values() {
             for sound in tab.sounds.values() {
                 if sound.hotkey.as_ref() == Some(binding) {
-                    return Some(sound.file.clone());
+                    return Some(sound.clone());
                 }
             }
         }
         None
+    }
+
+    fn find_sound_info(&self, path: &PathBuf) -> Option<crate::profile::model::Sound> {
+        let profile = self.profile_manager.current();
+        for tab in profile.tabs.values() {
+            for sound in tab.sounds.values() {
+                if &sound.file == path {
+                    return Some(sound.clone());
+                }
+            }
+        }
+        None
+    }
+
+    fn increment_play_count(&mut self, path: &PathBuf) {
+        let profile = self.profile_manager.current_mut();
+        for tab in profile.tabs.values_mut() {
+            for sound in tab.sounds.values_mut() {
+                if &sound.file == path {
+                    sound.play_count += 1;
+                    return;
+                }
+            }
+        }
     }
 
     fn random_sound_path(&self) -> Option<PathBuf> {

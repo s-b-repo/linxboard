@@ -142,7 +142,33 @@ fn build_sound_grid(
                 name: name_for_hk,
             });
 
-            let actions = row![rename_btn, hotkey_btn, del_btn].spacing(2);
+            let tab_for_fav = tab_owned.clone();
+            let name_for_fav = name.clone();
+            let fav_label = if sound.favorite { "*" } else { "." };
+            let fav_btn = button(text(fav_label).size(10)).on_press(Message::SoundToggleFavorite {
+                tab: tab_for_fav,
+                name: name_for_fav,
+            });
+
+            let stop_btn =
+                button(text("S").size(10)).on_press(Message::SoundStop(sound.file.clone()));
+
+            let tab_for_settings = tab_owned.clone();
+            let name_for_settings = name.clone();
+            let settings_btn = button(text("G").size(10)).on_press(Message::SoundSettingsDialog {
+                tab: tab_for_settings,
+                name: name_for_settings,
+            });
+
+            let actions = row![
+                fav_btn,
+                rename_btn,
+                hotkey_btn,
+                settings_btn,
+                stop_btn,
+                del_btn
+            ]
+            .spacing(2);
             let sound_widget = column![play_btn, actions].spacing(2);
             row_items.push(sound_widget.into());
         }

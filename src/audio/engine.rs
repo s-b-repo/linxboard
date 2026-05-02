@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crossbeam_channel::Receiver;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
@@ -14,6 +15,11 @@ pub enum AudioCommand {
         path: PathBuf,
         volume: f32,
         looping: bool,
+        start_ms: u64,
+        end_ms: Option<u64>,
+    },
+    StopSound {
+        path: PathBuf,
     },
     StopAll,
     SetMasterVolume(f32),
@@ -23,6 +29,7 @@ pub struct AudioEngine {
     _stream: OutputStream,
     stream_handle: OutputStreamHandle,
     sinks: Vec<Sink>,
+    sink_paths: Vec<Option<PathBuf>>,
     master_volume: f32,
     cache: HashMap<PathBuf, Arc<Vec<u8>>>,
     command_rx: Receiver<AudioCommand>,
@@ -46,11 +53,13 @@ impl AudioEngine {
         let sinks: Vec<Sink> = (0..MAX_CHANNELS)
             .map(|_| Sink::try_new(&stream_handle).unwrap())
             .collect();
+        let sink_paths = vec![None; MAX_CHANNELS];
 
         Self {
             _stream: stream,
             stream_handle,
             sinks,
+            sink_paths,
             master_volume: 0.7,
             cache: HashMap::new(),
             command_rx,
@@ -64,8 +73,13 @@ impl AudioEngine {
                     path,
                     volume,
                     looping,
+                    start_ms,
+                    end_ms,
                 } => {
-                    self.play(&path, volume, looping);
+                    self.play(&path, volume, looping, start_ms, end_ms);
+                }
+                AudioCommand::StopSound { path } => {
+                    self.stop_sound(&path);
                 }
                 AudioCommand::StopAll => {
                     for sink in &self.sinks {
@@ -74,6 +88,7 @@ impl AudioEngine {
                     self.sinks = (0..MAX_CHANNELS)
                         .map(|_| Sink::try_new(&self.stream_handle).unwrap())
                         .collect();
+                    self.sink_paths = vec![None; MAX_CHANNELS];
                 }
                 AudioCommand::SetMasterVolume(v) => {
                     self.master_volume = v;
@@ -85,7 +100,14 @@ impl AudioEngine {
         }
     }
 
-    fn play(&mut self, path: &Path, volume: f32, looping: bool) {
+    fn play(
+        &mut self,
+        path: &Path,
+        volume: f32,
+        looping: bool,
+        start_ms: u64,
+        end_ms: Option<u64>,
+    ) {
         let sink_idx = self.sinks.iter().position(|s| s.empty()).unwrap_or(0);
 
         let bytes = self
@@ -104,15 +126,42 @@ impl AudioEngine {
             Ok(source) => {
                 let sink = &self.sinks[sink_idx];
                 sink.set_volume(volume * self.master_volume);
-                if looping {
-                    sink.append(source.repeat_infinite());
+                self.sink_paths[sink_idx] = Some(path.to_path_buf());
+
+                let skipped = source.skip_duration(Duration::from_millis(start_ms));
+
+                if let Some(end) = end_ms {
+                    let duration = Duration::from_millis(end.saturating_sub(start_ms));
+                    if looping {
+                        sink.append(skipped.take_duration(duration).repeat_infinite());
+                    } else {
+                        sink.append(skipped.take_duration(duration));
+                    }
+                } else if looping {
+                    sink.append(skipped.repeat_infinite());
                 } else {
-                    sink.append(source);
+                    sink.append(skipped);
                 }
             }
             Err(e) => {
                 log::warn!("Failed to decode {:?}: {}", path, e);
             }
+        }
+    }
+
+    fn stop_sound(&mut self, path: &Path) {
+        let indices: Vec<usize> = self
+            .sink_paths
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.as_deref() == Some(path))
+            .map(|(i, _)| i)
+            .collect();
+
+        for i in indices {
+            self.sinks[i].stop();
+            self.sinks[i] = Sink::try_new(&self.stream_handle).unwrap();
+            self.sink_paths[i] = None;
         }
     }
 }

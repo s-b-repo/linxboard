@@ -81,6 +81,11 @@ fn parse_python_sound(data: &Value) -> Option<Sound> {
         hotkey,
         volume: 1.0,
         color: None,
+        start_ms: 0,
+        end_ms: None,
+        play_mode: PlayMode::Toggle,
+        favorite: false,
+        play_count: 0,
     })
 }
 

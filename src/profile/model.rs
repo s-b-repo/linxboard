@@ -89,6 +89,18 @@ fn key_name(code: u16) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlayMode {
+    Toggle,
+    PushToPlay,
+}
+
+impl Default for PlayMode {
+    fn default() -> Self {
+        Self::Toggle
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sound {
     pub file: PathBuf,
@@ -98,6 +110,16 @@ pub struct Sound {
     pub volume: f32,
     #[serde(default)]
     pub color: Option<String>,
+    #[serde(default)]
+    pub start_ms: u64,
+    #[serde(default)]
+    pub end_ms: Option<u64>,
+    #[serde(default)]
+    pub play_mode: PlayMode,
+    #[serde(default)]
+    pub favorite: bool,
+    #[serde(default)]
+    pub play_count: u64,
 }
 
 fn default_volume() -> f32 {
