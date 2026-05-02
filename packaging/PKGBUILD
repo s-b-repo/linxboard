@@ -1,0 +1,23 @@
+pkgname=linxboard
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="High-performance Linux soundboard with global hotkeys"
+arch=('x86_64')
+url="https://github.com/s-b-repo/linxboard"
+license=('GPL3')
+depends=('alsa-lib' 'gtk3' 'xdotool')
+makedepends=('rust' 'cargo' 'pkg-config')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    cargo build --release --locked
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 "target/release/linxboard" "$pkgdir/usr/bin/linxboard"
+    install -Dm644 "packaging/linxboard.desktop" "$pkgdir/usr/share/applications/linxboard.desktop"
+    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
